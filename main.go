@@ -17,6 +17,11 @@ type users struct {
 	Password string
 }
 
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
 var ab *xorm.Engine
 
 func initAB() {
@@ -46,12 +51,17 @@ func getLoginHandler(c *gin.Context) {
 }
 func loginHandler(c *gin.Context) {
 	if c.Request.Method == "POST" {
-		username := c.PostForm("username")
-		password := c.PostForm("password")
-		encryptPassword := encryptPassword(password)
+		var loginReq LoginRequest
+		// 使用 ShouldBind 而不是 ShouldBindJSON 来处理表单数据
+		if err := c.ShouldBind(&loginReq); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "请求格式错误: " + err.Error()})
+			return
+		}
+
+		encryptedPassword := encryptPassword(loginReq.Password)
 		var user users
 		// 验证用户名和密码
-		has, err := ab.Where("username = ? AND password=?", username, encryptPassword).Get(&user)
+		has, err := ab.Where("username = ? AND password=?", loginReq.Username, encryptedPassword).Get(&user)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
