@@ -5,10 +5,45 @@
 </head>
 <body>
 <h2>登录</h2>
-<form action="/login" method="post">
-    Username: <input type="text" name="username" required><br>
-    Password: <input type="password" name="password" required><br>
-    <input type="submit" value="Login">
-</form>
+ <form id="loginForm">
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" required><br><br>
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required><br><br>
+        <button type="button" onclick="submitLogin()">Login</button>
+    </form>
+
+    <script>
+        function submitLogin() {
+            var username = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+
+            // 构造要发送的JSON数据
+            var loginData = {
+                username: username,
+                password: password
+            };
+
+            // 使用fetch API发送POST请求
+            fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(loginData)
+            })
+            .then(response => response.text())
+            .then(data => {
+                console.log('Success:', data);
+                // 在这里处理成功响应，比如显示消息或重定向
+                alert(data);
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                // 在这里处理错误响应
+                alert('Error: ' + error.message);
+            });
+        }
+    </script>
 </body>
 </html>
