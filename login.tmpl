@@ -1,46 +1,129 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Login</title>
+    <title>注册/登录</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .login-container {
+            text-align: center;
+            width: 100%;
+            max-width: 300px;
+            padding: 20px;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .form-group label {
+            margin-bottom: 5px;
+        }
+        .form-group input[type="text"],
+        .form-group input[type="password"] {
+            width: calc(100% - 22px);
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .form-actions {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
 </head>
 <body>
-<h2>登录</h2>
- <form id="loginForm">
-        <label for="username">Username:</label>
-        <input type="text" id="username" name="username" required><br><br>
-        <label for="password">Password:</label>
-        <input type="password" id="password" name="password" required><br><br>
-        <button type="button" onclick="submitLogin()">Login</button>
-    </form>
-
+    <div class="login-container">
+        <h2>注册/登录</h2>
+        <form id="loginForm">
+            <div class="form-group">
+                <label for="username">用户名：</label>
+                <input type="text" id="username" name="Username" required>
+            </div>
+            <div class="form-group">
+                <label for="password">密码：</label>
+                <input type="password" id="password" name="Password" required>
+            </div>
+            <div class="form-actions">
+                <button type="button" onclick="submitRegister()">注册</button>
+                <button type="button" onclick="submitLogin()">登录</button>
+            </div>
+        </form>
+    </div>
     <script>
+        function submitRegister() {
+            var username = document.getElementById('username').value;
+            var password = document.getElementById('password').value;
+
+            fetch('/register', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ username: username, password: password })
+            })
+            .then(response => {
+                if (response.status === 200) {
+                    alert("注册成功，请登录");
+                } else if (response.status === 400 || response.status === 500) {
+                    return response.json();
+                } else {
+                    throw new Error('未知错误');
+                }
+            })
+            .then(data => {
+                if (data) {
+                    alert(data.message);
+                }
+            })
+            .catch((error) => {
+                console.error('Error:', error);
+                alert('Error: ' + error.message);
+            });
+        }
+
         function submitLogin() {
             var username = document.getElementById('username').value;
             var password = document.getElementById('password').value;
 
-            // 构造要发送的JSON数据
-            var loginData = {
-                username: username,
-                password: password
-            };
-
-            // 使用fetch API发送POST请求
             fetch('/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify(loginData)
+                body: JSON.stringify({ username: username, password: password })
             })
-            .then(response => response.text())
+            .then(response => {
+                if (response.status === 200) {
+                    window.location.href = "/personal";
+                } else if (response.status === 401 || response.status === 500) {
+                    return response.json();
+                } else {
+                    throw new Error('未知错误');
+                }
+            })
             .then(data => {
-                console.log('Success:', data);
-                // 在这里处理成功响应，比如显示消息或重定向
-                alert(data);
+                if (data) {
+                    alert(data.message);
+                }
             })
             .catch((error) => {
                 console.error('Error:', error);
-                // 在这里处理错误响应
                 alert('Error: ' + error.message);
             });
         }
