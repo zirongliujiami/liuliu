@@ -23,13 +23,12 @@
 </head>
 <body>
     <h2>个人信息</h2>
-    <div class="avatar-frame" id="avatarPreview">
-        <!-- 这里可以动态插入预览图片 -->
-    </div>
+    <div class="avatar-frame" id="avatarPreview"></div>
     <button onclick="document.getElementById('avatar').click()">修改头像</button>
     <input type="file" id="avatar" name="avatar" accept="image/*" style="display:none" onchange="uploadAvatar(this.files[0])"><br><br>
     <p id="usernameDisplay">用户名：</p>
     <form id="updateUsernameForm" action="/updateUsername" method="post">
+        <input type="hidden" id="csrfToken" name="csrfToken" value="{{ .csrf }}">
         <label for="newUsername">新用户名：</label>
         <input type="text" id="newUsername" name="newUsername"><br><br>
         <button type="submit">修改用户名</button>
@@ -54,9 +53,13 @@
             if (file) {
                 const formData = new FormData();
                 formData.append('avatar', file);
+                const csrfToken = document.getElementById('csrfToken').value;
 
                 fetch('/uploadAvatar', {
                     method: 'POST',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    },
                     body: formData
                 })
                 .then(response => response.json())
@@ -68,7 +71,7 @@
                         document.getElementById('avatarPreview').appendChild(img);
                         alert('头像上传成功');
                     } else {
-                        alert('头像上传失败：' + data.message);
+                        alert('头像上传失败：' + data.error);
                     }
                 })
                 .catch(error => {
@@ -81,11 +84,13 @@
         document.getElementById('updateUsernameForm').addEventListener('submit', function(e) {
             e.preventDefault();
             let newUsername = document.getElementById('newUsername').value;
+            let csrfToken = document.getElementById('csrfToken').value;
 
             fetch('/updateUsername', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({ newUsername: newUsername })
             })
@@ -95,12 +100,16 @@
                     alert('用户名更新成功');
                     document.getElementById('usernameDisplay').textContent = '用户名：' + newUsername;
                 } else {
-                    alert('用户名更新失败：' + data.message);
+                    alert('用户名更新失败：' + data.error);
                 }
             })
             .catch(error => {
-                console.error('Error:', error);
-                alert('Error: ' + error.message);
+                if (error.responseJSON && error.responseJSON.error === "CSRF token mismatch") {
+                    alert("CSRF token mismatch. Please refresh the page and try again.");
+                } else {
+                    console.error('Error:', error);
+                    alert('Error: ' + error.message);
+                }
             });
         });
     </script>
