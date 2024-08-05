@@ -51,6 +51,7 @@
     <div class="login-container">
         <h2>注册/登录</h2>
         <form id="loginForm">
+            <input type="hidden" id="csrf_token" name="_csrf" value="{{ .csrf }}">
             <div class="form-group">
                 <label for="username">用户名：</label>
                 <input type="text" id="username" name="Username" required>
@@ -69,11 +70,13 @@
         function submitRegister() {
             var username = document.getElementById('username').value;
             var password = document.getElementById('password').value;
+            var csrfToken = document.getElementById('csrf_token').value;
 
             fetch('/register', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({ username: username, password: password })
             })
@@ -88,7 +91,7 @@
             })
             .then(data => {
                 if (data) {
-                    alert(data.message);
+                    alert(data.error);
                 }
             })
             .catch((error) => {
@@ -100,11 +103,13 @@
         function submitLogin() {
             var username = document.getElementById('username').value;
             var password = document.getElementById('password').value;
+            var csrfToken = document.getElementById('csrf_token').value;
 
             fetch('/login', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
                 },
                 body: JSON.stringify({ username: username, password: password })
             })
@@ -119,7 +124,7 @@
             })
             .then(data => {
                 if (data) {
-                    alert(data.message);
+                    alert(data.error);
                 }
             })
             .catch((error) => {
@@ -129,4 +134,5 @@
         }
     </script>
 </body>
+</html>
 </html>
