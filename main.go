@@ -7,10 +7,13 @@ import (
 	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
+	csrf "github.com/utrack/gin-csrf"
+	"html"
+	"html/template"
 	"io"
 	"net/http"
 	"path/filepath"
-	"text/template"
+	"regexp"
 	"xorm.io/xorm"
 )
 
@@ -47,14 +50,30 @@ func initDB() {
 
 func hashPassword(password string) string {
 	hasher := md5.New()
-	io.WriteString(hasher, password)
+	_, _ = io.WriteString(hasher, password)
 	return fmt.Sprintf("%x", hasher.Sum(nil))
+}
+
+func validateInput(username, password string) bool {
+	if len(username) < 3 || len(username) > 20 {
+		return false
+	}
+	if len(password) < 6 || len(password) > 20 {
+		return false
+	}
+	regex := regexp.MustCompile(`^[a-zA-Z0-9]+$`)
+	return regex.MatchString(username) && regex.MatchString(password)
 }
 
 func registerHandler(c *gin.Context) {
 	var newUser Users
 	if err := c.ShouldBindJSON(&newUser); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的注册请求体"})
+		return
+	}
+
+	if !validateInput(newUser.Username, newUser.Password) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名或密码长度不符合"})
 		return
 	}
 
@@ -107,7 +126,10 @@ func personalHandler(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "模板文件加载失败: " + err.Error()})
 		return
 	}
-	tmpl.Execute(c.Writer, nil)
+	tmpl.Execute(c.Writer, map[string]interface{}{
+		"username": template.HTML(html.EscapeString(username.(string))),
+		"csrf":     csrf.GetToken(c),
+	})
 }
 
 func getUserInfoHandler(c *gin.Context) {
@@ -125,7 +147,7 @@ func getUserInfoHandler(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"username": user.Username, "avatar": user.Avatar})
+	c.JSON(http.StatusOK, gin.H{"username": html.EscapeString(user.Username), "avatar": user.Avatar})
 }
 
 func updateUsernameHandler(c *gin.Context) {
@@ -135,7 +157,6 @@ func updateUsernameHandler(c *gin.Context) {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "未登录"})
 		return
 	}
-
 	var req UpdateUsernameRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "无效的请求体"})
@@ -143,12 +164,16 @@ func updateUsernameHandler(c *gin.Context) {
 	}
 
 	newUsername := req.NewUsername
+	if len(newUsername) < 3 || len(newUsername) > 20 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "用户名长度不符合"})
+		return
+	}
+
 	_, err := db.ID(userID).Update(&Users{Username: newUsername})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "更新用户名失败"})
 		return
 	}
-
 	session.Set("username", newUsername)
 	session.Save()
 	c.JSON(http.StatusOK, gin.H{"success": true, "message": "用户名更新成功"})
@@ -191,6 +216,15 @@ func main() {
 	r := gin.Default()
 	store := cookie.NewStore([]byte("secret"))
 	r.Use(sessions.Sessions("mysession", store))
+	r.Use(csrf.Middleware(csrf.Options{
+		Secret: "secret123",
+		ErrorFunc: func(c *gin.Context) {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "CSRF token mismatch",
+			})
+			c.Abort()
+		},
+	}))
 	r.Static("/uploads", "./uploads")
 	r.GET("/login", func(c *gin.Context) {
 		tmpl, err := template.ParseFiles("login.tmpl")
@@ -198,7 +232,9 @@ func main() {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "模板文件加载失败: " + err.Error()})
 			return
 		}
-		tmpl.Execute(c.Writer, nil)
+		tmpl.Execute(c.Writer, map[string]interface{}{
+			"csrf": csrf.GetToken(c),
+		})
 	})
 	r.POST("/register", registerHandler)
 	r.POST("/login", loginHandler)
@@ -206,6 +242,5 @@ func main() {
 	r.GET("/getUserInfo", getUserInfoHandler)
 	r.POST("/updateUsername", updateUsernameHandler)
 	r.POST("/uploadAvatar", uploadAvatarHandler)
-
 	r.Run(":8080")
 }
